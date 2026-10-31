@@ -1,7 +1,8 @@
 import {
   Project, BusinessRule, RuleAuditLog, CoreFeature, DependencyGraph,
   ObsoleteFinding, CodeProposal, ModernizationRoadmap, AnalysisEvent,
-  VerificationResult, BenchmarkMetrics
+  VerificationResult, BenchmarkMetrics, FileTreeResponse, FileContentResponse,
+  WebsiteInspection, VisualRegressionResult, TokenUsage
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -20,19 +21,59 @@ export const api = {
     return res.json();
   },
 
-  async createProject(name: string, description: string = ''): Promise<Project> {
+  async createProject(
+    name: string,
+    description: string = '',
+    sourceType: 'zip' | 'url' | 'git' | 'sample' = 'zip',
+    sourceUrl: string = '',
+    sourceBranch: string = 'main',
+    authToken?: string
+  ): Promise<Project> {
     const res = await fetch(`${API_BASE}/projects`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, description, source_type: 'zip' }),
+      body: JSON.stringify({
+        name,
+        description,
+        source_type: sourceType,
+        source_url: sourceUrl,
+        source_branch: sourceBranch,
+        auth_token: authToken
+      }),
     });
-    if (!res.ok) throw new Error('Failed to create project');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to create project' }));
+      throw new Error(err.detail || 'Failed to create project');
+    }
     return res.json();
   },
 
   async deleteProject(id: string): Promise<void> {
     const res = await fetch(`${API_BASE}/projects/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete project');
+  },
+
+  async getFileTree(projectId: string): Promise<FileTreeResponse> {
+    const res = await fetch(`${API_BASE}/projects/${projectId}/file-tree`);
+    if (!res.ok) throw new Error('Failed to fetch file tree');
+    return res.json();
+  },
+
+  async getFileContent(projectId: string, path: string): Promise<FileContentResponse> {
+    const params = new URLSearchParams({ path });
+    const res = await fetch(`${API_BASE}/projects/${projectId}/file-content?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch file content');
+    return res.json();
+  },
+
+  async getWebsiteInspection(projectId: string): Promise<WebsiteInspection> {
+    const res = await fetch(`${API_BASE}/projects/${projectId}/website-inspection`);
+    if (!res.ok) throw new Error('No website inspection data found for this project');
+    return res.json();
+  },
+
+  getPatchUrl(projectId: string): string {
+    return `${API_BASE}/projects/${projectId}/patch`;
   },
 
   // Uploads
@@ -78,6 +119,12 @@ export const api = {
     return res.json();
   },
 
+  async getTokenUsage(projectId: string): Promise<TokenUsage> {
+    const res = await fetch(`${API_BASE}/analysis/${projectId}/token-usage`);
+    if (!res.ok) throw new Error('Failed to fetch token usage');
+    return res.json();
+  },
+
   // Business Rules
   async getBusinessRules(projectId: string, status?: string, search?: string): Promise<BusinessRule[]> {
     const params = new URLSearchParams();
@@ -114,7 +161,7 @@ export const api = {
     return res.json();
   },
 
-  // Modernization
+  // Modernization & Change Control
   async getRoadmap(projectId: string): Promise<ModernizationRoadmap> {
     const res = await fetch(`${API_BASE}/modernization/${projectId}/roadmap`);
     if (!res.ok) throw new Error('Failed to fetch roadmap');
@@ -139,13 +186,51 @@ export const api = {
     return res.json();
   },
 
-  async approveProposal(proposalId: string, approvalStatus: 'approved' | 'rejected', reason: string = ''): Promise<CodeProposal> {
+  async updateProposalStatus(
+    proposalId: string,
+    approvalStatus: 'proposed' | 'under_review' | 'approved' | 'rejected' | 'skipped' | 'reverted',
+    reason: string = ''
+  ): Promise<CodeProposal> {
     const res = await fetch(`${API_BASE}/modernization/proposal/${proposalId}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approval_status: approvalStatus, reason }),
     });
-    if (!res.ok) throw new Error('Failed to approve proposal');
+    if (!res.ok) throw new Error('Failed to update proposal status');
+    return res.json();
+  },
+
+  async revertProposal(proposalId: string): Promise<CodeProposal> {
+    const res = await fetch(`${API_BASE}/modernization/proposal/${proposalId}/revert`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error('Failed to revert proposal');
+    return res.json();
+  },
+
+  async editProposal(proposalId: string, data: { title?: string; proposed_code?: string; rationale?: string }): Promise<CodeProposal> {
+    const res = await fetch(`${API_BASE}/modernization/proposal/${proposalId}/edit`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to edit proposal');
+    return res.json();
+  },
+
+  async applyApprovedProposals(projectId: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/modernization/${projectId}/apply-approved`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error('Failed to apply approved proposals');
+    return res.json();
+  },
+
+  async rollbackAllProposals(projectId: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/modernization/${projectId}/rollback-all`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error('Failed to rollback proposals');
     return res.json();
   },
 
@@ -153,6 +238,12 @@ export const api = {
   async runVerification(projectId: string): Promise<VerificationResult> {
     const res = await fetch(`${API_BASE}/verification/${projectId}/run`, { method: 'POST' });
     if (!res.ok) throw new Error('Failed to execute verification gate');
+    return res.json();
+  },
+
+  async getVisualRegression(projectId: string): Promise<VisualRegressionResult> {
+    const res = await fetch(`${API_BASE}/verification/${projectId}/visual-regression`);
+    if (!res.ok) throw new Error('Failed to fetch visual regression analysis');
     return res.json();
   },
 

@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any
 from sqlalchemy.orm import Session
@@ -28,7 +28,7 @@ class ReportService:
 
         return {
             "metadata": {
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "agent": "LegacyLens AI Modernization Suite v1.0",
                 "project_id": project.id,
                 "project_name": project.name,
@@ -121,7 +121,12 @@ class ReportService:
         md.append(f"- **Files Analyzed:** {stats.get('file_count', 0)} ({stats.get('total_loc', 0)} LOC)")
         md.append(f"- **Extracted Business Rules:** {len(data['business_rules'])}")
         md.append(f"- **Obsolete / Dead Code Findings:** {len(data['obsolete_findings'])}")
-        md.append(f"- **Core Features Discovered:** {len(data['core_features'])}\n")
+        md.append(f"- **Core Features Discovered:** {len(data['core_features'])}")
+        token_usage = stats.get("token_usage")
+        if token_usage and isinstance(token_usage, dict) and token_usage.get("available"):
+            md.append(f"- **AI Reasoning Telemetry:** {token_usage.get('total_tokens', 0):,} tokens ({token_usage.get('input_tokens', 0):,} input / {token_usage.get('output_tokens', 0):,} output via {token_usage.get('model', 'model')})\n")
+        else:
+            md.append("")
         
         md.append("## 2. Core Business Features Discovered")
         for f in data["core_features"]:

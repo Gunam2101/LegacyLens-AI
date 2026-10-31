@@ -5,6 +5,8 @@ from app.analyzers.base import AnalysisResult, ExtractedDependency, ExtractedEnt
 from app.analyzers.python_analyzer import PythonAnalyzer
 from app.analyzers.javascript_analyzer import JavaScriptAnalyzer
 from app.analyzers.sql_analyzer import SQLAnalyzer
+from app.analyzers.web_template_analyzer import WebTemplateAnalyzer
+from app.analyzers.generic_language_analyzer import GenericLanguageAnalyzer
 from app.schemas.schemas import DependencyNodeResponse, DependencyEdgeResponse, DependencyGraphResponse
 
 class DependencyAnalyzerService:
@@ -12,7 +14,9 @@ class DependencyAnalyzerService:
         self.analyzers = [
             PythonAnalyzer(),
             JavaScriptAnalyzer(),
-            SQLAnalyzer()
+            SQLAnalyzer(),
+            WebTemplateAnalyzer(),
+            GenericLanguageAnalyzer()
         ]
 
     def analyze_workspace(self, workspace_path: Path) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[AnalysisResult]]:

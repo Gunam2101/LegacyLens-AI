@@ -3,7 +3,52 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+  :root {
+    --color-brand: #6366f1;
   }
+
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased selection:bg-indigo-500/20 selection:text-indigo-900;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom Slim Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300/80 rounded-full hover:bg-slate-400 transition-colors;
+  }
+
+  /* Dark mode scrollbar for code/terminal blocks */
+  .dark-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full hover:bg-slate-600;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-200;
+  }
+
+  .glass-card-dark {
+    @apply bg-slate-900/90 backdrop-blur-md border border-slate-800 shadow-xl;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

@@ -26,12 +26,20 @@ LANGUAGE_EXTENSIONS = {
     ".sql": "SQL",
     ".html": "HTML",
     ".css": "CSS",
+    ".scss": "CSS",
     ".json": "JSON",
     ".yaml": "YAML",
     ".yml": "YAML",
+    ".java": "Java",
+    ".go": "Go",
+    ".cs": "C#",
+    ".php": "PHP",
+    ".kt": "Kotlin",
+    ".rs": "Rust",
     ".sh": "Shell",
     ".bat": "Batch",
-    ".md": "Markdown"
+    ".md": "Markdown",
+    ".xml": "XML"
 }
 
 FRAMEWORK_SIGNATURES = {
@@ -40,6 +48,10 @@ FRAMEWORK_SIGNATURES = {
     "Django": [r'django\.conf', r'django\.db', r'DJANGO_SETTINGS_MODULE'],
     "Express": [r'require\([\'"]express[\'"]\)', r'from [\'"]express[\'"]'],
     "React": [r'from [\'"]react[\'"]', r'require\([\'"]react[\'"]\)'],
+    "Next.js": [r'next/router', r'next/navigation', r'next/link'],
+    "Vue": [r'from [\'"]vue[\'"]', r'<template>'],
+    "Spring Boot": [r'@SpringBootApplication', r'org\.springframework'],
+    "ASP.NET": [r'Microsoft\.AspNetCore', r'using System\.Web'],
     "SQLAlchemy": [r'from sqlalchemy import', r'import sqlalchemy'],
     "Celery": [r'from celery import', r'Celery\('],
     "Pytest": [r'import pytest', r'def test_'],

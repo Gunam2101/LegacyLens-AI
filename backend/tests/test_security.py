@@ -27,8 +27,51 @@ def test_archive_limits_prevention():
         validate_archive_stats(file_count=10, total_uncompressed_bytes=600 * 1024 * 1024, max_files=1000, max_bytes=500 * 1024 * 1024)
 
 def test_secret_masking():
-    raw = 'api_key: "sk-1234567890abcdef1234567890abcdef" and AIzaSyD12345678901234567890123456789'
+    raw = 'api_key: "sk-1234567890abcdef1234567890abcdef" and AIzaSyD12345678901234567890123456789 and ghp_123456789012345678901234567890123456'
     masked = mask_secrets(raw)
     assert "sk-1234567890abcdef1234567890abcdef" not in masked
     assert "AIzaSyD" not in masked
+    assert "ghp_123456789012345678901234567890123456" not in masked
     assert "[REDACTED" in masked or "..." in masked
+
+def test_ssrf_protection():
+    from app.core.security import validate_and_normalize_url
+
+    # Block localhost and loopback
+    with pytest.raises(SecurityError, match="blocked for security"):
+        validate_and_normalize_url("http://localhost:8000")
+
+    with pytest.raises(SecurityError, match="blocked for security"):
+        validate_and_normalize_url("http://127.0.0.1/admin")
+
+    with pytest.raises(SecurityError, match="blocked for security"):
+        validate_and_normalize_url("http://169.254.169.254/latest/meta-data")
+
+    # Block invalid schemes
+    with pytest.raises(SecurityError, match="Prohibited URL scheme"):
+        validate_and_normalize_url("ftp://example.com/file")
+
+    with pytest.raises(SecurityError, match="Prohibited URL scheme"):
+        validate_and_normalize_url("file:///etc/passwd")
+
+    # Block embedded credentials
+    with pytest.raises(SecurityError, match="embedded authentication"):
+        validate_and_normalize_url("http://admin:secret@example.com")
+
+def test_git_url_validation():
+    from app.services.git_service import GitService
+
+    valid = GitService.validate_repo_url("https://github.com/torvalds/linux.git")
+    assert valid == "https://github.com/torvalds/linux.git"
+
+    # Flag injection prevention
+    with pytest.raises(SecurityError, match="Invalid characters or flag injection"):
+        GitService.validate_repo_url("--upload-pack=evil")
+
+    # Shell command injection prevention
+    with pytest.raises(SecurityError, match="Invalid characters or flag injection"):
+        GitService.validate_repo_url("https://github.com/repo; rm -rf /")
+
+    # Unsupported protocol
+    with pytest.raises(SecurityError, match="Unsupported Git protocol"):
+        GitService.validate_repo_url("ssh://git@github.com/user/repo.git")

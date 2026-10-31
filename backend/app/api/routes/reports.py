@@ -30,6 +30,8 @@ def get_report_html(project_id: str, db: Session = Depends(get_db)):
     try:
         data = ReportService.generate_full_report_data(db, project_id)
         meta = data["metadata"]
+        token_usage = meta.get('stats', {}).get('token_usage')
+        token_html = f"<p><strong>AI Reasoning Telemetry:</strong> {token_usage.get('total_tokens', 0):,} tokens ({token_usage.get('input_tokens', 0):,} prompt / {token_usage.get('output_tokens', 0):,} candidates via {token_usage.get('model', 'model')})</p>" if (token_usage and isinstance(token_usage, dict) and token_usage.get('available')) else ""
         
         # Build printable HTML
         html = f"""<!DOCTYPE html>
@@ -66,6 +68,7 @@ def get_report_html(project_id: str, db: Session = Depends(get_db)):
     <p><strong>Frameworks Identified:</strong> {', '.join(meta['frameworks']) or 'None'}</p>
     <p><strong>Files Analyzed:</strong> {meta.get('stats', {}).get('file_count', 0)} ({meta.get('stats', {}).get('total_loc', 0)} LOC)</p>
     <p><strong>Reconstructed Rules:</strong> {len(data['business_rules'])} | <strong>Obsolete Findings:</strong> {len(data['obsolete_findings'])}</p>
+    {token_html}
   </div>
 
   <h2>2. Business Rules Reconstruction Catalogue</h2>

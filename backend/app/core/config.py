@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
     PROJECT_NAME: str = "LegacyLens AI"
     VERSION: str = "1.0.0"
     API_V1_PREFIX: str = "/api/v1"
@@ -29,10 +31,6 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-2.5-flash"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
-    
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
 
 settings = Settings()
 

@@ -4,7 +4,9 @@ export interface Project {
   description?: string;
   created_at: string;
   status: 'created' | 'analyzing' | 'analyzed' | 'failed';
-  source_type: string;
+  source_type: 'zip' | 'url' | 'git' | 'sample';
+  source_url?: string;
+  source_branch?: string;
   workspace_path?: string;
   languages: Record<string, number>;
   frameworks: string[];
@@ -14,7 +16,9 @@ export interface Project {
     entrypoints?: string[];
     test_files_count?: number;
     database_files_count?: number;
+    token_usage?: TokenUsage;
   };
+  redesign_data?: Record<string, any>;
 }
 
 export interface BusinessRule {
@@ -112,6 +116,7 @@ export interface ObsoleteFinding {
 export interface CodeProposal {
   id: string;
   project_id: string;
+  change_id?: string; // e.g. "CHG-001"
   title: string;
   file_path: string;
   original_code: string;
@@ -119,10 +124,12 @@ export interface CodeProposal {
   diff_content: string;
   rationale: string;
   affected_rules: string[];
+  dependencies?: string[];
   baseline_test_passed?: boolean;
   post_test_passed?: boolean;
   preservation_gate_status: 'pending' | 'passed' | 'failed' | 'blocked';
-  approval_status: 'pending' | 'approved' | 'rejected';
+  approval_status: 'proposed' | 'under_review' | 'approved' | 'rejected' | 'applied_in_workspace' | 'verification_failed' | 'verified' | 'reverted' | 'pending';
+  applied_at?: string;
   created_at: string;
 }
 
@@ -147,6 +154,25 @@ export interface ModernizationRoadmap {
   created_at: string;
 }
 
+export interface TokenUsage {
+  available: boolean;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  provider?: string | null;
+  model?: string | null;
+  models?: Record<string, {
+    provider: string;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    calls: number;
+  }>;
+  calls_count?: number;
+  reason?: string | null;
+  last_updated?: string | null;
+}
+
 export interface AnalysisEvent {
   id: string;
   stage: string;
@@ -154,6 +180,7 @@ export interface AnalysisEvent {
   message: string;
   level: 'info' | 'warning' | 'error' | 'success';
   timestamp: string;
+  token_usage?: TokenUsage;
 }
 
 export interface VerificationResult {
@@ -185,4 +212,71 @@ export interface BenchmarkMetrics {
   reclassified_findings_count: number;
   execution_duration_seconds: number;
   llm_cost_estimate: string;
+}
+
+export interface FileNode {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number;
+  language?: string;
+  status?: 'unchanged' | 'modified' | 'added' | 'removed' | 'affected';
+  children?: FileNode[];
+}
+
+export interface FileTreeResponse {
+  project_id: string;
+  root: FileNode;
+  total_files: number;
+  total_directories: number;
+}
+
+export interface FileContentResponse {
+  project_id: string;
+  file_path: string;
+  original_content: string;
+  modernized_content: string;
+  is_modified: boolean;
+}
+
+export interface WebsiteInspection {
+  id: string;
+  project_id: string;
+  url: string;
+  status_code: number;
+  page_title: string;
+  meta_description: string;
+  headings: Array<{ level: string; text: string }>;
+  links: Array<{ href: string; text: string; rel?: string }>;
+  colors: string[];
+  fonts: string[];
+  images: Array<{ src: string; alt: string; has_alt: boolean }>;
+  forms: Array<{ action: string; method: string; inputs: Array<any> }>;
+  accessibility_issues: Array<{ severity: string; rule: string; description: string }>;
+  broken_links: Array<any>;
+  visual_structure: Record<string, any>;
+  raw_html: string;
+  redesign_prototype_html: string;
+  redesign_spec: Record<string, any>;
+  created_at: string;
+}
+
+export interface VisualRegressionResult {
+  has_visual_data: boolean;
+  project_id?: string;
+  message?: string;
+  metrics?: {
+    visual_diff_status: string;
+    inline_styles_eliminated: number;
+    responsive_viewport_preserved: boolean;
+    viewport_added: boolean;
+    modern_css_tokens_introduced: number;
+    interactive_elements_count: {
+      original_buttons: number;
+      modernized_buttons: number;
+    };
+    design_fidelity_score: number;
+    accessibility_compliance: string;
+    layout_shifts: Array<{ element: string; status: string; shift: string }>;
+  };
 }

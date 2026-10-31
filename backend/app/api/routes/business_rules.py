@@ -1,5 +1,5 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -54,7 +54,7 @@ def update_rule_status(
     rule.status = update_data.status
     if update_data.user_notes:
         rule.user_notes = update_data.user_notes
-    rule.updated_at = datetime.utcnow()
+    rule.updated_at = datetime.now(timezone.utc)
 
     # Record audit log
     audit = RuleAuditLog(
@@ -64,7 +64,7 @@ def update_rule_status(
         previous_status=prev_status,
         new_status=update_data.status,
         reason=update_data.reason or "User review update",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     db.add(audit)
     db.commit()

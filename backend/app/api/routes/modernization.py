@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -8,8 +8,9 @@ from app.models.database import (
 )
 from app.schemas.schemas import (
     ModernizationRoadmapResponse, CoreFeatureResponse, ObsoleteFindingResponse,
-    CodeProposalResponse, CodeProposalApproval
+    CodeProposalResponse, CodeProposalApproval, CodeProposalEdit
 )
+from app.services.change_control import ChangeControlService
 
 router = APIRouter(prefix="/modernization", tags=["modernization"])
 
@@ -35,7 +36,7 @@ def get_obsolete_findings(project_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{project_id}/proposals", response_model=List[CodeProposalResponse])
 def get_code_proposals(project_id: str, db: Session = Depends(get_db)):
-    return db.query(CodeProposal).filter(CodeProposal.project_id == project_id).all()
+    return db.query(CodeProposal).filter(CodeProposal.project_id == project_id).order_by(CodeProposal.created_at.asc()).all()
 
 @router.post("/proposal/{proposal_id}/approve", response_model=CodeProposalResponse)
 def approve_proposal(
@@ -43,11 +44,47 @@ def approve_proposal(
     action: CodeProposalApproval,
     db: Session = Depends(get_db)
 ):
-    prop = db.query(CodeProposal).filter(CodeProposal.id == proposal_id).first()
-    if not prop:
-        raise HTTPException(status_code=404, detail="Code proposal not found")
+    try:
+        prop, warnings = ChangeControlService.update_proposal_status(
+            db, proposal_id, action.approval_status, action.reason or ""
+        )
+        return prop
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
-    prop.approval_status = action.approval_status
-    db.commit()
-    db.refresh(prop)
-    return prop
+@router.post("/proposal/{proposal_id}/revert", response_model=CodeProposalResponse)
+def revert_single_proposal(proposal_id: str, db: Session = Depends(get_db)):
+    try:
+        return ChangeControlService.revert_proposal(db, proposal_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.patch("/proposal/{proposal_id}/edit", response_model=CodeProposalResponse)
+def edit_proposal_content(
+    proposal_id: str,
+    data: CodeProposalEdit,
+    db: Session = Depends(get_db)
+):
+    try:
+        return ChangeControlService.edit_proposal(
+            db, proposal_id,
+            new_title=data.title,
+            new_proposed_code=data.proposed_code,
+            new_rationale=data.rationale
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.post("/{project_id}/apply-approved")
+def apply_all_approved_proposals(project_id: str, db: Session = Depends(get_db)):
+    try:
+        return ChangeControlService.apply_approved_changes(db, project_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.post("/{project_id}/rollback-all")
+def rollback_all_changes(project_id: str, db: Session = Depends(get_db)):
+    try:
+        return ChangeControlService.rollback_all(db, project_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

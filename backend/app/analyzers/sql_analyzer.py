@@ -10,6 +10,43 @@ class SQLAnalyzer(BaseAnalyzer):
     def can_handle(self, file_path: str) -> bool:
         return any(file_path.endswith(ext) for ext in self.SUPPORTED_EXTENSIONS)
 
+    @staticmethod
+    def _find_line_number(lines: List[str], needle: str, start_hint: int = 1) -> int:
+        """Finds the 1-based line number in lines matching needle or key tokens."""
+        needle_clean = needle.strip().lower()
+        if not needle_clean:
+            return 1
+        # Direct substring
+        for idx in range(start_hint - 1, len(lines)):
+            if needle_clean in lines[idx].lower():
+                return idx + 1
+        # Fallback to whole file search
+        for idx, line in enumerate(lines, start=1):
+            if needle_clean in line.lower():
+                return idx
+        # Token overlap
+        tokens = [t for t in re.split(r'[^a-zA-Z0-9_]', needle_clean) if len(t) > 2]
+        if tokens:
+            best_line = 1
+            best_score = 0
+            for idx, line in enumerate(lines, start=1):
+                l_low = line.lower()
+                score = sum(1 for t in tokens if t in l_low)
+                if score > best_score:
+                    best_score = score
+                    best_line = idx
+            if best_score > 0:
+                return best_line
+        return 1
+
+    @staticmethod
+    def _find_table_line(lines: List[str], table_name: str) -> int:
+        pattern = re.compile(rf'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`\[]?{re.escape(table_name)}["`\]]?', re.IGNORECASE)
+        for idx, line in enumerate(lines, start=1):
+            if pattern.search(line):
+                return idx
+        return 1
+
     def analyze(self, file_path: str, content: str, relative_path: str) -> AnalysisResult:
         result = AnalysisResult()
         lines = content.splitlines()
@@ -28,23 +65,25 @@ class SQLAnalyzer(BaseAnalyzer):
                 if isinstance(expr, exp.Create):
                     tbl = expr.find(exp.Table)
                     table_name = tbl.name if tbl else (expr.this.name if hasattr(expr.this, "name") else str(expr.this))
+                    tbl_line = self._find_table_line(lines, table_name)
                     entities.append(ExtractedEntity(
                         entity_type="table",
                         name=table_name,
                         file_path=relative_path,
-                        line_start=1,
-                        line_end=len(lines),
+                        line_start=tbl_line,
+                        line_end=min(tbl_line + 50, len(lines)),
                         details={"schema_definition": True}
                     ))
                     # Check constraints at table and column levels
                     for check in expr.find_all(exp.Constraint, exp.CheckColumnConstraint, exp.Check):
                         c_str = str(check)
                         if "CHECK" in c_str.upper() or isinstance(check, exp.CheckColumnConstraint):
+                            chk_line = self._find_line_number(lines, c_str, start_hint=tbl_line)
                             rules.append(ExtractedRule(
                                 rule_code=f"BR-SQL-CHK-{abs(hash(f'{relative_path}:{table_name}:{c_str}')) % 10000:04d}",
                                 description=f"Database constraint on {table_name}: {c_str}",
                                 source_file=relative_path,
-                                line_start=1,
+                                line_start=chk_line,
                                 evidence_quote=c_str,
                                 evidence_type="sql_query",
                                 confidence=0.95,
@@ -56,24 +95,26 @@ class SQLAnalyzer(BaseAnalyzer):
                 for table in expr.find_all(exp.Table):
                     t_name = table.name
                     if t_name:
+                        dep_line = self._find_line_number(lines, t_name)
                         dependencies.append(ExtractedDependency(
                             source=f"mod:{relative_path}",
                             target=f"table:{t_name}",
                             relationship="queries",
                             evidence_type="sql_parse",
                             file_path=relative_path,
-                            line_number=1
+                            line_number=dep_line
                         ))
 
                 # WHERE clauses - business rules in queries
                 for where in expr.find_all(exp.Where):
                     where_sql = str(where)
                     if any(term in where_sql.lower() for term in ["status", "active", "amount", "limit", "tier", "deleted", "is_"]):
+                        where_line = self._find_line_number(lines, where_sql)
                         rules.append(ExtractedRule(
                             rule_code=f"BR-SQL-WHR-{abs(hash(f'{relative_path}:{where_sql[:50]}')) % 10000:04d}",
                             description=f"Database query filter rule: {where_sql[:120]}",
                             source_file=relative_path,
-                            line_start=1,
+                            line_start=where_line,
                             evidence_quote=where_sql[:200],
                             evidence_type="sql_query",
                             confidence=0.90,
@@ -81,7 +122,7 @@ class SQLAnalyzer(BaseAnalyzer):
                             potential_impact="Filters records according to active business criteria"
                         ))
 
-        except Exception as e:
+        except Exception:
             # Fallback regex if dialect specific syntax isn't fully parsed by sqlglot
             self._fallback_sql_regex(content, relative_path, entities, dependencies, rules)
 
@@ -118,10 +159,9 @@ class SQLAnalyzer(BaseAnalyzer):
                     description=f"SQL predicate filter: {s}",
                     source_file=relative_path,
                     line_start=idx,
-                    line_end=idx,
                     evidence_quote=s,
                     evidence_type="sql_query",
-                    confidence=0.88,
+                    confidence=0.85,
                     related_modules=[relative_path],
-                    potential_impact="Filters database rows by business criteria"
+                    potential_impact="Filters records according to condition"
                 ))

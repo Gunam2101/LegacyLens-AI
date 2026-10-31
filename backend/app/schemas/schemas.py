@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class ProjectBase(BaseModel):
     name: str
@@ -8,19 +8,24 @@ class ProjectBase(BaseModel):
 
 class ProjectCreate(ProjectBase):
     source_type: Optional[str] = "zip"
+    source_url: Optional[str] = ""
+    source_branch: Optional[str] = "main"
+    auth_token: Optional[str] = None
 
 class ProjectResponse(ProjectBase):
     id: str
     created_at: datetime
     status: str
     source_type: str
+    source_url: Optional[str] = ""
+    source_branch: Optional[str] = "main"
     workspace_path: Optional[str] = ""
     languages: Dict[str, Any] = {}
     frameworks: List[str] = []
     stats: Dict[str, Any] = {}
+    redesign_data: Dict[str, Any] = {}
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class BusinessRuleBase(BaseModel):
     rule_code: str
@@ -43,8 +48,7 @@ class BusinessRuleResponse(BusinessRuleBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class BusinessRuleStatusUpdate(BaseModel):
     status: str = Field(..., description="verified, user_confirmed, user_rejected, conflicting, inferred")
@@ -56,13 +60,12 @@ class RuleAuditLogResponse(BaseModel):
     rule_id: str
     project_id: str
     action: str
-    previous_status: Optional[str]
+    previous_status: Optional[str] = None
     new_status: str
     reason: str
     timestamp: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CoreFeatureResponse(BaseModel):
     id: str
@@ -76,8 +79,7 @@ class CoreFeatureResponse(BaseModel):
     risk_level: str = "medium"
     modernization_notes: Optional[str] = ""
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DependencyNodeResponse(BaseModel):
     id: str
@@ -89,8 +91,7 @@ class DependencyNodeResponse(BaseModel):
     risk_level: str = "low"
     details: Dict[str, Any] = {}
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DependencyEdgeResponse(BaseModel):
     id: str
@@ -101,8 +102,7 @@ class DependencyEdgeResponse(BaseModel):
     file_path: Optional[str] = None
     line_number: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DependencyGraphResponse(BaseModel):
     nodes: List[DependencyNodeResponse]
@@ -121,12 +121,12 @@ class ObsoleteFindingResponse(BaseModel):
     recommendation: str
     business_impact: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CodeProposalResponse(BaseModel):
     id: str
     project_id: str
+    change_id: Optional[str] = "CHG-001"
     title: str
     file_path: str
     original_code: str
@@ -134,18 +134,24 @@ class CodeProposalResponse(BaseModel):
     diff_content: str
     rationale: str
     affected_rules: List[str] = []
+    dependencies: List[str] = []
     baseline_test_passed: Optional[bool] = None
     post_test_passed: Optional[bool] = None
     preservation_gate_status: str
     approval_status: str
+    applied_at: Optional[datetime] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CodeProposalApproval(BaseModel):
-    approval_status: str = Field(..., description="approved or rejected")
+    approval_status: str = Field(..., description="approved, rejected, skipped, reverted")
     reason: Optional[str] = ""
+
+class CodeProposalEdit(BaseModel):
+    title: Optional[str] = None
+    proposed_code: Optional[str] = None
+    rationale: Optional[str] = None
 
 class ModernizationPhase(BaseModel):
     phase_number: int
@@ -171,13 +177,24 @@ class EvidenceDocumentResponse(BaseModel):
     summary: str
     uploaded_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class EvidenceUploadRequest(BaseModel):
     filename: str
     doc_type: str
     content: str
+
+class TokenUsageResponse(BaseModel):
+    available: bool
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    models: Dict[str, Any] = {}
+    calls_count: int = 0
+    reason: Optional[str] = None
+    last_updated: Optional[str] = None
 
 class AnalysisEventResponse(BaseModel):
     id: str
@@ -186,9 +203,9 @@ class AnalysisEventResponse(BaseModel):
     message: str
     level: str
     timestamp: datetime
+    token_usage: Optional[Dict[str, Any]] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class VerificationResultResponse(BaseModel):
     proposal_id: Optional[str]
@@ -201,3 +218,49 @@ class VerificationResultResponse(BaseModel):
     preservation_status: str
     execution_output: str
     duration_seconds: float
+
+class WebsiteInspectionResponse(BaseModel):
+    id: str
+    project_id: str
+    url: str
+    status_code: int
+    page_title: str
+    meta_description: str
+    headings: List[Dict[str, Any]] = []
+    links: List[Dict[str, Any]] = []
+    colors: List[str] = []
+    fonts: List[str] = []
+    images: List[Dict[str, Any]] = []
+    forms: List[Dict[str, Any]] = []
+    accessibility_issues: List[Dict[str, Any]] = []
+    broken_links: List[Dict[str, Any]] = []
+    visual_structure: Dict[str, Any] = {}
+    redesign_prototype_html: str
+    redesign_spec: Dict[str, Any] = {}
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class FileNode(BaseModel):
+    name: str
+    path: str
+    is_dir: bool
+    size: int = 0
+    language: Optional[str] = None
+    status: Optional[str] = "unchanged" # unchanged, modified, added, removed, affected
+    children: Optional[List['FileNode']] = None
+
+FileNode.model_rebuild()
+
+class FileTreeResponse(BaseModel):
+    project_id: str
+    root: FileNode
+    total_files: int
+    total_directories: int
+
+class FileContentResponse(BaseModel):
+    project_id: str
+    file_path: str
+    original_content: str
+    modernized_content: str
+    is_modified: bool

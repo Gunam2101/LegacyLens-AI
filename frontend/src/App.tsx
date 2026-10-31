@@ -11,6 +11,7 @@ import { BusinessRulesPage } from './pages/BusinessRulesPage';
 import { DependencyPage } from './pages/DependencyPage';
 import { ModernizationPage } from './pages/ModernizationPage';
 import { CodeChangesPage } from './pages/CodeChangesPage';
+import { WebsiteRedesignStudio } from './pages/WebsiteRedesignStudio';
 import { VerificationPage } from './pages/VerificationPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { BenchmarkPage } from './pages/BenchmarkPage';
@@ -116,6 +117,10 @@ export const App: React.FC = () => {
               <Route
                 path="/modernization"
                 element={<ModernizationPage currentProject={currentProject} />}
+              />
+              <Route
+                path="/redesign"
+                element={<WebsiteRedesignStudio currentProject={currentProject} />}
               />
               <Route
                 path="/changes"

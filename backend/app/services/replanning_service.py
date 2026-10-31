@@ -47,7 +47,7 @@ class ReplanningService:
             for r in rules
         ]
         
-        correlated = await llm_provider.correlate_evidence_and_rules(raw_rules_dict, doc_dict)
+        correlated = await llm_provider.correlate_evidence_and_rules(raw_rules_dict, doc_dict, project_id=project_id)
         corr_map = {c["rule_code"]: c for c in correlated}
 
         for r in rules:

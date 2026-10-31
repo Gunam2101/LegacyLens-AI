@@ -1,5 +1,6 @@
 from pathlib import Path
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -20,10 +21,16 @@ from app.api.routes.reports import router as reports_router
 from app.api.routes.benchmark import router as benchmark_router
 from app.api.routes.settings_api import router as settings_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Autonomous, Evidence-Driven Legacy Application Modernization Agent"
+    description="Autonomous, Evidence-Driven Legacy Application Modernization Agent",
+    lifespan=lifespan
 )
 
 # Enable CORS for local Vite development
@@ -34,10 +41,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-def on_startup():
-    init_db()
 
 @app.get("/health")
 def health_check():
@@ -68,8 +71,8 @@ if frontend_dist.exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        if full_path.startswith("api/") or full_path == "health":
-            return None
+        if full_path.startswith("api") or full_path == "health":
+            raise HTTPException(status_code=404, detail="API route not found")
         file_path = frontend_dist / full_path
         if file_path.is_file():
             return FileResponse(str(file_path))
