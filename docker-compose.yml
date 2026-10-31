@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  legacylens:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: legacylens-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - AI_PROVIDER=auto
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - MAX_UPLOAD_MB=100
+      - MAX_EXTRACTED_MB=500
+    volumes:
+      - legacylens-storage:/app/backend/storage
+    restart: unless-stopped
+
+volumes:
+  legacylens-storage:
