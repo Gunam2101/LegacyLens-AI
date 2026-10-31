@@ -208,3 +208,5 @@ Follow this 5-minute walkthrough to test all features:
 ## 8. License & Authors
 Built with pride for the Google DeepMind Antigravity Advanced Agentic Modernization Challenge.
 Licensed under the Apache-2.0 License.
+#   L e g a c y L e n s - A I  
+ 
